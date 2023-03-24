@@ -70,6 +70,9 @@ class Utility(object):
         except Exception:
             from ..initializer import Initializer
 
+        if not Initializer.get_initializer().sdk_config.get_auto_refresh_fields():
+            return
+
         last_modified_time = None
 
         try:
