@@ -160,7 +160,7 @@ class Initializer(object):
 
     @staticmethod
     def switch_user(user, environment, token, sdk_config, proxy=None):
-
+        raise Exception("SWITCH USER")
         """
         The method to switch the different user in SDK environment.
 
