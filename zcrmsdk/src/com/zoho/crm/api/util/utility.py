@@ -42,7 +42,8 @@ class Utility(object):
     module_api_name = None
     get_modified_modules = False
     force_refresh = False
-    lock = threading.Lock()
+    lock = threading.RLock()
+    file_lock = threading.RLock()
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
@@ -69,9 +70,6 @@ class Utility(object):
             from zcrmsdk.src.com.zoho.crm.api.initializer import Initializer
         except Exception:
             from ..initializer import Initializer
-
-        if not Initializer.get_initializer().sdk_config.get_auto_refresh_fields():
-            return
 
         last_modified_time = None
 
@@ -683,9 +681,8 @@ class Utility(object):
 
     @staticmethod
     def write_to_file(file_path, file_contents):
-        if not Initializer.get_initializer().sdk_config.get_auto_refresh_fields():
-            return
-        with open(file_path, mode="w") as file:
-            json.dump(file_contents, file)
-            file.flush()
-            file.close()
+        with Utility.file_lock:
+            with open(file_path, mode="w") as file:
+                json.dump(file_contents, file)
+                file.flush()
+                file.close()
