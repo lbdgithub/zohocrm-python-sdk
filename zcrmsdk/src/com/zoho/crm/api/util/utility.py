@@ -683,6 +683,8 @@ class Utility(object):
 
     @staticmethod
     def write_to_file(file_path, file_contents):
+        if not Initializer.get_initializer().sdk_config.get_auto_refresh_fields():
+            return
         with open(file_path, mode="w") as file:
             json.dump(file_contents, file)
             file.flush()
