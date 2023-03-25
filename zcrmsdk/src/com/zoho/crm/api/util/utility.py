@@ -42,7 +42,7 @@ class Utility(object):
     module_api_name = None
     get_modified_modules = False
     force_refresh = False
-    lock = threading.RLock()
+    lock = threading.Lock()
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
