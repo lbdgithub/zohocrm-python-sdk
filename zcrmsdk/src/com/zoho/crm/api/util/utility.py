@@ -43,7 +43,6 @@ class Utility(object):
     get_modified_modules = False
     force_refresh = False
     lock = threading.RLock()
-    file_lock = threading.RLock()
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
@@ -681,8 +680,7 @@ class Utility(object):
 
     @staticmethod
     def write_to_file(file_path, file_contents):
-        with Utility.file_lock:
-            with open(file_path, mode="w") as file:
-                json.dump(file_contents, file)
-                file.flush()
-                file.close()
+        with open(file_path, mode="w") as file:
+            json.dump(file_contents, file)
+            file.flush()
+            file.close()
