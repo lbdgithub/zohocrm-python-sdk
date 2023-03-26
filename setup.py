@@ -34,7 +34,8 @@ setup(
     install_requires=[
         'requests',
         'python-dateutil',
-        'urllib3'
+        'urllib3',
+        'filelock'
     ],
     keywords=['development', 'zoho', 'crm', 'api', 'zcrmsdk', 'sdk', 'zcrm'],
     packages=find_packages(),

@@ -8,6 +8,7 @@ try:
     import zlib
     import base64
     import re
+    from filelock import Timeout, FileLock
     from zcrmsdk.src.com.zoho.crm.api.util.constants import Constants
     from zcrmsdk.src.com.zoho.crm.api.util.converter import Converter
     from zcrmsdk.src.com.zoho.crm.api.initializer import Initializer
@@ -680,7 +681,9 @@ class Utility(object):
 
     @staticmethod
     def write_to_file(file_path, file_contents):
-        with open(file_path, mode="w") as file:
-            json.dump(file_contents, file)
-            file.flush()
-            file.close()
+        lock = FileLock(file_path)
+        with lock:
+            with open(file_path, mode="w") as file:
+                json.dump(file_contents, file)
+                file.flush()
+                file.close()
