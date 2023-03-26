@@ -681,7 +681,7 @@ class Utility(object):
 
     @staticmethod
     def write_to_file(file_path, file_contents):
-        lock = FileLock(file_path)
+        lock = FileLock(file_path + '.lock')
         with lock:
             with open(file_path, mode="w") as file:
                 json.dump(file_contents, file)
