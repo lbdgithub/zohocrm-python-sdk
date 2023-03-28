@@ -35,7 +35,7 @@ setup(
         'requests',
         'python-dateutil',
         'urllib3',
-        'filelock'
+        'portalocker[redis]'
     ],
     keywords=['development', 'zoho', 'crm', 'api', 'zcrmsdk', 'sdk', 'zcrm'],
     packages=find_packages(),

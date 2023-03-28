@@ -7,7 +7,7 @@ try:
     import zlib
     import base64
     import re
-    from filelock import Timeout, FileLock
+    import portalocker
     from zcrmsdk.src.com.zoho.crm.api.util.constants import Constants
     from zcrmsdk.src.com.zoho.crm.api.util.converter import Converter
     from zcrmsdk.src.com.zoho.crm.api.initializer import Initializer
@@ -23,7 +23,7 @@ except Exception:
     import zlib
     import base64
     import re
-    from filelock import Timeout, FileLock
+    import portalocker
     from .constants import Constants
     from .converter import Converter
     from ..initializer import Initializer
@@ -80,8 +80,8 @@ class Utility(object):
                 os.makedirs(resources_path)
 
             record_field_details_path = Utility.get_file_name()
-            lock = FileLock(record_field_details_path + '.lock')
-            with lock:
+            lock_file = record_field_details_path + '.lock'
+            with portalocker.RedisLock(lock_file):
                 if os.path.exists(record_field_details_path):
                     record_field_details_json = Initializer.get_json(record_field_details_path)
 
@@ -224,8 +224,8 @@ class Utility(object):
                 if not os.path.exists(resources_path):
                     os.makedirs(resources_path)
                 record_field_details_path = Utility.get_file_name()
-                lock = FileLock(record_field_details_path + '.lock')
-                with lock:
+                lock_file = record_field_details_path + '.lock'
+                with portalocker.RedisLock(lock_file):
                     if not os.path.exists(record_field_details_path) or (
                             os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
                         is_new_data = True
