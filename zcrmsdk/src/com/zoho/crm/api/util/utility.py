@@ -1,6 +1,5 @@
 try:
     import logging
-    import threading
     import datetime
     import time
     import os
@@ -17,7 +16,6 @@ try:
 
 except Exception:
     import logging
-    import threading
     import os
     import json
     import time
@@ -25,6 +23,7 @@ except Exception:
     import zlib
     import base64
     import re
+    from filelock import Timeout, FileLock
     from .constants import Constants
     from .converter import Converter
     from ..initializer import Initializer
@@ -43,7 +42,6 @@ class Utility(object):
     module_api_name = None
     get_modified_modules = False
     force_refresh = False
-    lock = threading.RLock()
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
@@ -74,17 +72,17 @@ class Utility(object):
         last_modified_time = None
 
         try:
-            with Utility.lock:
-                resources_path = os.path.join(Initializer.get_initializer().resource_path,
-                                              Constants.FIELD_DETAILS_DIRECTORY)
+            resources_path = os.path.join(Initializer.get_initializer().resource_path,
+                                          Constants.FIELD_DETAILS_DIRECTORY)
 
-                if not os.path.exists(resources_path):
-                    if module_api_name is not None and Utility.search_json_details(module_api_name) is not None:
-                        return
-                    os.makedirs(resources_path)
+            if not os.path.exists(resources_path):
+                if module_api_name is not None and Utility.search_json_details(module_api_name) is not None:
+                    return
+                os.makedirs(resources_path)
 
-                record_field_details_path = Utility.get_file_name()
-
+            record_field_details_path = Utility.get_file_name()
+            lock = FileLock(record_field_details_path + '.lock')
+            with lock:
                 if os.path.exists(record_field_details_path):
                     record_field_details_json = Initializer.get_json(record_field_details_path)
 
@@ -681,9 +679,7 @@ class Utility(object):
 
     @staticmethod
     def write_to_file(file_path, file_contents):
-        lock = FileLock(file_path + '.lock')
-        with lock:
-            with open(file_path, mode="w") as file:
-                json.dump(file_contents, file)
-                file.flush()
-                file.close()
+        with open(file_path, mode="w") as file:
+            json.dump(file_contents, file)
+            file.flush()
+            file.close()
