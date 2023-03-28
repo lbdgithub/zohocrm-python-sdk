@@ -81,7 +81,7 @@ class Utility(object):
 
             record_field_details_path = Utility.get_file_name()
             lock_file = record_field_details_path + '.lock'
-            with portalocker.RedisLock(lock_file):
+            with portalocker.Lock(lock_file):
                 if os.path.exists(record_field_details_path):
                     record_field_details_json = Initializer.get_json(record_field_details_path)
 
@@ -225,7 +225,7 @@ class Utility(object):
                     os.makedirs(resources_path)
                 record_field_details_path = Utility.get_file_name()
                 lock_file = record_field_details_path + '.lock'
-                with portalocker.RedisLock(lock_file):
+                with portalocker.Lock(lock_file):
                     if not os.path.exists(record_field_details_path) or (
                             os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
                         is_new_data = True
