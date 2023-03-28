@@ -50,9 +50,8 @@ class Utility(object):
 
     @staticmethod
     def get_fields(module_api_name):
-         with Utility.lock:
-             Utility.module_api_name = module_api_name
-             Utility.get_fields_info(Utility.module_api_name)
+         Utility.module_api_name = module_api_name
+         Utility.get_fields_info(Utility.module_api_name)
 
     @staticmethod
     def get_fields_info(module_api_name):
@@ -216,7 +215,6 @@ class Utility(object):
 
     @staticmethod
     def get_related_lists(related_module_name, module_api_name, common_api_handler):
-        with Utility.lock:
             try:
                 is_new_data = False
                 key = (module_api_name + Constants.UNDERSCORE + Constants.RELATED_LISTS).lower()
@@ -226,25 +224,26 @@ class Utility(object):
                 if not os.path.exists(resources_path):
                     os.makedirs(resources_path)
                 record_field_details_path = Utility.get_file_name()
+                lock = FileLock(record_field_details_path + '.lock')
+                with lock:
+                    if not os.path.exists(record_field_details_path) or (
+                            os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
+                        is_new_data = True
+                        related_list_values = Utility.get_related_list_details(module_api_name)
+                        record_field_details_json = Initializer.get_json(record_field_details_path) if os.path.exists(
+                            record_field_details_path) else {}
+                        record_field_details_json[key] = related_list_values
+                        Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
 
-                if not os.path.exists(record_field_details_path) or (
-                        os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
-                    is_new_data = True
-                    related_list_values = Utility.get_related_list_details(module_api_name)
-                    record_field_details_json = Initializer.get_json(record_field_details_path) if os.path.exists(
-                        record_field_details_path) else {}
-                    record_field_details_json[key] = related_list_values
-                    Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
+                    record_field_details_json = Initializer.get_json(record_field_details_path)
+                    module_related_list = record_field_details_json[key]
 
-                record_field_details_json = Initializer.get_json(record_field_details_path)
-                module_related_list = record_field_details_json[key]
+                    if not Utility.check_related_list_exists(related_module_name, module_related_list,
+                                                             common_api_handler) and not is_new_data:
+                        del record_field_details_json[key]
+                        Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
 
-                if not Utility.check_related_list_exists(related_module_name, module_related_list,
-                                                         common_api_handler) and not is_new_data:
-                    del record_field_details_json[key]
-                    Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
-
-                    Utility.get_related_lists(related_module_name, module_api_name, common_api_handler)
+                        Utility.get_related_lists(related_module_name, module_api_name, common_api_handler)
 
             except SDKException as e:
                 Utility.logger.error(Constants.EXCEPTION + e.__str__())
