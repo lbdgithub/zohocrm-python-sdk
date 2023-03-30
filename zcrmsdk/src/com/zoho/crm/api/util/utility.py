@@ -80,8 +80,7 @@ class Utility(object):
                 os.makedirs(resources_path)
 
             record_field_details_path = Utility.get_file_name()
-            lock = FileLock(record_field_details_path + '.lock')
-            with lock:
+            with FileLock(record_field_details_path + '.lock'):
                 if os.path.exists(record_field_details_path):
                     record_field_details_json = Initializer.get_json(record_field_details_path)
 
@@ -224,8 +223,7 @@ class Utility(object):
                 if not os.path.exists(resources_path):
                     os.makedirs(resources_path)
                 record_field_details_path = Utility.get_file_name()
-                lock = FileLock(record_field_details_path + '.lock')
-                with lock:
+                with FileLock(record_field_details_path + '.lock'):
                     if not os.path.exists(record_field_details_path) or (
                             os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
                         is_new_data = True
