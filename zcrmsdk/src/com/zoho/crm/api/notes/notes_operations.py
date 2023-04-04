@@ -19,7 +19,7 @@ class NotesOperations(object):
 		"""Creates an instance of NotesOperations"""
 		pass
 
-	def get_notes(self, param_instance=None, header_instance=None):
+	def get_notes(self, param_instance=None, header_instance=None, parent_module=None, parent_id=None):
 		"""
 		The method to get notes
 
@@ -42,7 +42,10 @@ class NotesOperations(object):
 		
 		handler_instance = CommonAPIHandler()
 		api_path = ''
-		api_path = api_path + '/crm/v2/Notes'
+		if parent_module and parent_id:
+			api_path = api_path + f'/crm/v2/{parent_module}/{parent_id}/Notes'
+		else:
+			api_path = api_path + '/crm/v2/Notes'
 		handler_instance.set_api_path(api_path)
 		handler_instance.set_http_method(Constants.REQUEST_METHOD_GET)
 		handler_instance.set_category_method(Constants.REQUEST_CATEGORY_READ)
