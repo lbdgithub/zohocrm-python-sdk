@@ -1,5 +1,6 @@
 try:
     import logging
+    import threading
     import datetime
     import time
     import os
@@ -7,7 +8,6 @@ try:
     import zlib
     import base64
     import re
-    from filelock import Timeout, FileLock
     from zcrmsdk.src.com.zoho.crm.api.util.constants import Constants
     from zcrmsdk.src.com.zoho.crm.api.util.converter import Converter
     from zcrmsdk.src.com.zoho.crm.api.initializer import Initializer
@@ -16,6 +16,7 @@ try:
 
 except Exception:
     import logging
+    import threading
     import os
     import json
     import time
@@ -23,7 +24,6 @@ except Exception:
     import zlib
     import base64
     import re
-    from filelock import Timeout, FileLock
     from .constants import Constants
     from .converter import Converter
     from ..initializer import Initializer
@@ -42,6 +42,7 @@ class Utility(object):
     module_api_name = None
     get_modified_modules = False
     force_refresh = False
+    lock = threading.RLock()
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
@@ -50,12 +51,9 @@ class Utility(object):
 
     @staticmethod
     def get_fields(module_api_name):
-        record_field_details_path = Utility.get_file_name()
-        lock = FileLock(record_field_details_path + '.lock', timeout=30)
-        lock.acquire(timeout=30)
-        Utility.module_api_name = module_api_name
-        Utility.get_fields_info(Utility.module_api_name)
-        lock.release()
+         with Utility.lock:
+             Utility.module_api_name = module_api_name
+             Utility.get_fields_info(Utility.module_api_name)
 
     @staticmethod
     def get_fields_info(module_api_name):
@@ -74,82 +72,82 @@ class Utility(object):
 
         last_modified_time = None
 
-        record_field_details_path = Utility.get_file_name()
-        lock = FileLock(record_field_details_path + '.lock', timeout=30)
-        lock.acquire(timeout=30)
         try:
-            resources_path = os.path.join(Initializer.get_initializer().resource_path,
-                                          Constants.FIELD_DETAILS_DIRECTORY)
+            with Utility.lock:
+                resources_path = os.path.join(Initializer.get_initializer().resource_path,
+                                              Constants.FIELD_DETAILS_DIRECTORY)
 
-            if not os.path.exists(resources_path):
-                if module_api_name is not None and Utility.search_json_details(module_api_name) is not None:
-                    return
-                os.makedirs(resources_path)
+                if not os.path.exists(resources_path):
+                    if module_api_name is not None and Utility.search_json_details(module_api_name) is not None:
+                        return
+                    os.makedirs(resources_path)
 
-            if os.path.exists(record_field_details_path):
-                record_field_details_json = Initializer.get_json(record_field_details_path)
+                record_field_details_path = Utility.get_file_name()
 
-                if Initializer.get_initializer().sdk_config.get_auto_refresh_fields() and not Utility.new_file and not Utility.get_modified_modules and (Constants.FIELDS_LAST_MODIFIED_TIME not in record_field_details_json or Utility.force_refresh or (time.time() * 1000 - record_field_details_json[Constants.FIELDS_LAST_MODIFIED_TIME]) > 3600000):
+                if os.path.exists(record_field_details_path):
+                    record_field_details_json = Initializer.get_json(record_field_details_path)
+
+                    if Initializer.get_initializer().sdk_config.get_auto_refresh_fields() and not Utility.new_file and not Utility.get_modified_modules and (Constants.FIELDS_LAST_MODIFIED_TIME not in record_field_details_json or Utility.force_refresh or (time.time() * 1000 - record_field_details_json[Constants.FIELDS_LAST_MODIFIED_TIME]) > 3600000):
+                        Utility.get_modified_modules = True
+                        last_modified_time = record_field_details_json[Constants.FIELDS_LAST_MODIFIED_TIME] if Constants.FIELDS_LAST_MODIFIED_TIME in record_field_details_json else None
+                        Utility.modify_fields(record_field_details_path, last_modified_time)
+                        Utility.get_modified_modules = False
+
+                    elif not Initializer.get_initializer().sdk_config.get_auto_refresh_fields() and Utility.force_refresh and not Utility.get_modified_modules:
+                        Utility.get_modified_modules = True
+                        Utility.modify_fields(record_field_details_path, last_modified_time)
+                        Utility.get_modified_modules = False
+
+                    record_field_details_json = Initializer.get_json(record_field_details_path)
+
+                    if module_api_name is None or module_api_name.lower() in record_field_details_json:
+                        return
+
+                    else:
+                        Utility.fill_data_type()
+                        record_field_details_json[module_api_name.lower()] = {}
+                        Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
+                        field_details = Utility.get_fields_details(module_api_name)
+                        record_field_details_json = Initializer.get_json(record_field_details_path)
+                        record_field_details_json[module_api_name.lower()] = field_details
+                        Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
+
+                elif Initializer.get_initializer().sdk_config.get_auto_refresh_fields():
+                    Utility.new_file = True
+                    Utility.fill_data_type()
+                    module_api_names = Utility.get_modules(None)
+                    record_field_details_json = {
+                        Constants.FIELDS_LAST_MODIFIED_TIME: time.time() * 1000
+                    }
+
+                    for module in module_api_names:
+                        if module.lower() not in record_field_details_json:
+                            record_field_details_json[module.lower()] = {}
+                            Utility.write_to_file(file_path=record_field_details_path,
+                                                  file_contents=record_field_details_json)
+                            field_details = Utility.get_fields_details(module)
+                            record_field_details_json = Initializer.get_json(record_field_details_path)
+                            record_field_details_json[module.lower()] = field_details
+                            Utility.write_to_file(file_path=record_field_details_path,
+                                                  file_contents=record_field_details_json)
+
+                    Utility.new_file = False
+
+                elif Utility.force_refresh and not Utility.get_modified_modules:
                     Utility.get_modified_modules = True
-                    last_modified_time = record_field_details_json[Constants.FIELDS_LAST_MODIFIED_TIME] if Constants.FIELDS_LAST_MODIFIED_TIME in record_field_details_json else None
+                    record_field_details_json = {}
+                    Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
                     Utility.modify_fields(record_field_details_path, last_modified_time)
                     Utility.get_modified_modules = False
-
-                elif not Initializer.get_initializer().sdk_config.get_auto_refresh_fields() and Utility.force_refresh and not Utility.get_modified_modules:
-                    Utility.get_modified_modules = True
-                    Utility.modify_fields(record_field_details_path, last_modified_time)
-                    Utility.get_modified_modules = False
-
-                record_field_details_json = Initializer.get_json(record_field_details_path)
-
-                if module_api_name is None or module_api_name.lower() in record_field_details_json:
-                    return
 
                 else:
                     Utility.fill_data_type()
-                    record_field_details_json[module_api_name.lower()] = {}
+                    record_field_details_json = {module_api_name.lower(): {}}
                     Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
                     field_details = Utility.get_fields_details(module_api_name)
                     record_field_details_json = Initializer.get_json(record_field_details_path)
                     record_field_details_json[module_api_name.lower()] = field_details
                     Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
-
-            elif Initializer.get_initializer().sdk_config.get_auto_refresh_fields():
-                Utility.new_file = True
-                Utility.fill_data_type()
-                module_api_names = Utility.get_modules(None)
-                record_field_details_json = {
-                    Constants.FIELDS_LAST_MODIFIED_TIME: time.time() * 1000
-                }
-
-                for module in module_api_names:
-                    if module.lower() not in record_field_details_json:
-                        record_field_details_json[module.lower()] = {}
-                        Utility.write_to_file(file_path=record_field_details_path,
-                                              file_contents=record_field_details_json)
-                        field_details = Utility.get_fields_details(module)
-                        record_field_details_json = Initializer.get_json(record_field_details_path)
-                        record_field_details_json[module.lower()] = field_details
-                        Utility.write_to_file(file_path=record_field_details_path,
-                                              file_contents=record_field_details_json)
-
-                Utility.new_file = False
-
-            elif Utility.force_refresh and not Utility.get_modified_modules:
-                Utility.get_modified_modules = True
-                record_field_details_json = {}
-                Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
-                Utility.modify_fields(record_field_details_path, last_modified_time)
-                Utility.get_modified_modules = False
-
-            else:
-                Utility.fill_data_type()
-                record_field_details_json = {module_api_name.lower(): {}}
-                Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
-                field_details = Utility.get_fields_details(module_api_name)
-                record_field_details_json = Initializer.get_json(record_field_details_path)
-                record_field_details_json[module_api_name.lower()] = field_details
-                Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
 
         except Exception as e:
             if record_field_details_path is not None and os.path.exists(record_field_details_path):
@@ -181,9 +179,6 @@ class Utility(object):
             Utility.logger.info(Constants.EXCEPTION + e.__str__())
 
             raise e
-
-        finally:
-            lock.release()
 
     @staticmethod
     def modify_fields(record_field_details_path, modified_time):
@@ -222,48 +217,44 @@ class Utility(object):
 
     @staticmethod
     def get_related_lists(related_module_name, module_api_name, common_api_handler):
-        record_field_details_path = Utility.get_file_name()
-        lock = FileLock(record_field_details_path + '.lock', timeout=30)
-        lock.acquire(timeout=30)
-        try:
-            is_new_data = False
-            key = (module_api_name + Constants.UNDERSCORE + Constants.RELATED_LISTS).lower()
-            resources_path = os.path.join(Initializer.get_initializer().resource_path,
-                                          Constants.FIELD_DETAILS_DIRECTORY)
+        with Utility.lock:
+            try:
+                is_new_data = False
+                key = (module_api_name + Constants.UNDERSCORE + Constants.RELATED_LISTS).lower()
+                resources_path = os.path.join(Initializer.get_initializer().resource_path,
+                                              Constants.FIELD_DETAILS_DIRECTORY)
 
-            if not os.path.exists(resources_path):
-                os.makedirs(resources_path)
+                if not os.path.exists(resources_path):
+                    os.makedirs(resources_path)
+                record_field_details_path = Utility.get_file_name()
 
-            if not os.path.exists(record_field_details_path) or (
-                    os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
-                is_new_data = True
-                related_list_values = Utility.get_related_list_details(module_api_name)
-                record_field_details_json = Initializer.get_json(record_field_details_path) if os.path.exists(
-                    record_field_details_path) else {}
-                record_field_details_json[key] = related_list_values
-                Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
+                if not os.path.exists(record_field_details_path) or (
+                        os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
+                    is_new_data = True
+                    related_list_values = Utility.get_related_list_details(module_api_name)
+                    record_field_details_json = Initializer.get_json(record_field_details_path) if os.path.exists(
+                        record_field_details_path) else {}
+                    record_field_details_json[key] = related_list_values
+                    Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
 
-            record_field_details_json = Initializer.get_json(record_field_details_path)
-            module_related_list = record_field_details_json[key]
+                record_field_details_json = Initializer.get_json(record_field_details_path)
+                module_related_list = record_field_details_json[key]
 
-            if not Utility.check_related_list_exists(related_module_name, module_related_list,
-                                                     common_api_handler) and not is_new_data:
-                del record_field_details_json[key]
-                Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
+                if not Utility.check_related_list_exists(related_module_name, module_related_list,
+                                                         common_api_handler) and not is_new_data:
+                    del record_field_details_json[key]
+                    Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
 
-                Utility.get_related_lists(related_module_name, module_api_name, common_api_handler)
+                    Utility.get_related_lists(related_module_name, module_api_name, common_api_handler)
 
-        except SDKException as e:
-            Utility.logger.error(Constants.EXCEPTION + e.__str__())
-            raise e
+            except SDKException as e:
+                Utility.logger.error(Constants.EXCEPTION + e.__str__())
+                raise e
 
-        except Exception as e:
-            sdk_exception = SDKException(cause=e)
-            Utility.logger.error(Constants.EXCEPTION + sdk_exception.__str__())
-            raise sdk_exception
-
-        finally:
-            lock.release()
+            except Exception as e:
+                sdk_exception = SDKException(cause=e)
+                Utility.logger.error(Constants.EXCEPTION + sdk_exception.__str__())
+                raise sdk_exception
 
     @staticmethod
     def check_related_list_exists(related_module_name, module_related_list_array, common_api_handler):
