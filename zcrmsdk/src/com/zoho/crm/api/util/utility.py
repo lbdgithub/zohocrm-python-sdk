@@ -81,7 +81,8 @@ class Utility(object):
 
             record_field_details_path = Utility.get_file_name()
             lock = FileLock(record_field_details_path + '.lock', timeout=30)
-            with lock:
+            lock.acquire(timeout=30)
+            try:
                 if os.path.exists(record_field_details_path):
                     record_field_details_json = Initializer.get_json(record_field_details_path)
 
@@ -146,6 +147,8 @@ class Utility(object):
                     record_field_details_json = Initializer.get_json(record_field_details_path)
                     record_field_details_json[module_api_name.lower()] = field_details
                     Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
+            finally:
+                lock.release()
 
         except Exception as e:
             if record_field_details_path is not None and os.path.exists(record_field_details_path):
@@ -225,7 +228,8 @@ class Utility(object):
                     os.makedirs(resources_path)
                 record_field_details_path = Utility.get_file_name()
                 lock = FileLock(record_field_details_path + '.lock', timeout=30)
-                with lock:
+                lock.acquire(timeout=30)
+                try:
                     if not os.path.exists(record_field_details_path) or (
                             os.path.exists(record_field_details_path) and key not in Initializer.get_json(record_field_details_path)):
                         is_new_data = True
@@ -244,6 +248,9 @@ class Utility(object):
                         Utility.write_to_file(file_path=record_field_details_path, file_contents=record_field_details_json)
 
                         Utility.get_related_lists(related_module_name, module_api_name, common_api_handler)
+
+                finally:
+                    lock.release()
 
             except SDKException as e:
                 Utility.logger.error(Constants.EXCEPTION + e.__str__())
