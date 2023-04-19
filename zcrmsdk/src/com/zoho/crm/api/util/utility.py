@@ -43,7 +43,14 @@ class Utility(object):
     module_api_name = None
     get_modified_modules = False
     force_refresh = False
-    lock = FileLock('resource.lock', timeout=30)
+    lock = FileLock(
+        os.path.join(
+            Initializer.get_initializer().resource_path,
+            Constants.FIELD_DETAILS_DIRECTORY,
+            Converter.get_encoded_file_name()
+        ) + '.lock',
+        timeout=30
+    )
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
