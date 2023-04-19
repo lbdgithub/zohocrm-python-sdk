@@ -43,14 +43,7 @@ class Utility(object):
     module_api_name = None
     get_modified_modules = False
     force_refresh = False
-    lock = FileLock(
-        os.path.join(
-            Initializer.get_initializer().resource_path,
-            Constants.FIELD_DETAILS_DIRECTORY,
-            Converter.get_encoded_file_name()
-        ) + '.lock',
-        timeout=30
-    )
+    lock = None
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
@@ -59,9 +52,12 @@ class Utility(object):
 
     @staticmethod
     def get_fields(module_api_name):
-         with Utility.lock:
-             Utility.module_api_name = module_api_name
-             Utility.get_fields_info(Utility.module_api_name)
+        if Utility.lock is None:
+            Utility.lock = FileLock(Utility.get_file_name() + '.lock', timeout=30)
+
+        with Utility.lock:
+            Utility.module_api_name = module_api_name
+            Utility.get_fields_info(Utility.module_api_name)
 
     @staticmethod
     def get_fields_info(module_api_name):
@@ -81,6 +77,8 @@ class Utility(object):
         last_modified_time = None
 
         try:
+            if Utility.lock is None:
+                Utility.lock = FileLock(Utility.get_file_name() + '.lock', timeout=30)
             with Utility.lock:
                 resources_path = os.path.join(Initializer.get_initializer().resource_path,
                                               Constants.FIELD_DETAILS_DIRECTORY)
@@ -225,6 +223,8 @@ class Utility(object):
 
     @staticmethod
     def get_related_lists(related_module_name, module_api_name, common_api_handler):
+        if Utility.lock is None:
+            Utility.lock = FileLock(Utility.get_file_name() + '.lock', timeout=30)
         with Utility.lock:
             try:
                 is_new_data = False
