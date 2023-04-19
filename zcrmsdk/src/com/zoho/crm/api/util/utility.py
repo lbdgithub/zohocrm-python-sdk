@@ -13,6 +13,7 @@ try:
     from zcrmsdk.src.com.zoho.crm.api.initializer import Initializer
     from zcrmsdk.src.com.zoho.crm.api.exception import SDKException
     from zcrmsdk.src.com.zoho.crm.api.header_map import HeaderMap
+    from filelock import Timeout, FileLock
 
 except Exception:
     import logging
@@ -42,7 +43,7 @@ class Utility(object):
     module_api_name = None
     get_modified_modules = False
     force_refresh = False
-    lock = threading.RLock()
+    lock = FileLock('resource.lock', timeout=30)
     logger = logging.getLogger('SDKLogger')
 
     @staticmethod
